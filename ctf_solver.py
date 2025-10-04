@@ -296,7 +296,8 @@ class CTFSolver:
         html_patterns = [
             r'<div[^>]*class="[^"]*product[^"]*"[^>]*>(.*?)</div>',
             r'<div[^>]*data-product-id="(\d+)"[^>]*>(.*?)</div>',
-            r'<h[1-6][^>]*>([^<]*(?:laptop|phone|headphone|watch|product)[^<]*)</h[1-6]>',
+            r'<h[1-6][^>]*>([^<]*(?:laptop|phone|headphone|watch|product)'
+            r'[^<]*)</h[1-6]>',
         ]
         
         for pattern in html_patterns:
@@ -610,6 +611,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
