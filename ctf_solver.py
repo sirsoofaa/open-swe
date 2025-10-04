@@ -201,16 +201,15 @@ class CTFSolver:
             
             # Print shop content for analysis
             print(f"[+] Shop content length: {len(response['content'])}")
-            print(f"[+] Shop content preview:")
-            print("-" * 50)
-            print(response['content'][:1000])
-            print("-" * 50)
             
             # Look for flag in shop page
             flag = self.find_flag(response['content'])
             if flag:
                 print(f"[!] FLAG FOUND IN SHOP PAGE: {flag}")
                 return response, flag
+            
+            # Analyze shop content for products and purchase mechanisms
+            self.analyze_shop_content(response['content'])
             
             # Parse forms for purchase options
             forms = self.parse_forms(response['content'])
@@ -225,6 +224,105 @@ class CTFSolver:
         else:
             print(f"[-] Failed to access shop: {response.get('error', 'Unknown error')}")
             return response, None
+    
+    def analyze_shop_content(self, content):
+        """Analyze shop content for products and purchase mechanisms"""
+        print("[+] Analyzing shop content...")
+        
+        # Look for product information
+        products = []
+        
+        # Search for product patterns in JavaScript
+        js_product_pattern = r'// ID: (\d+), Name: ([^\\n]+)'
+        js_matches = re.findall(js_product_pattern, content)
+        if js_matches:
+            print(f"[+] Found {len(js_matches)} products in JavaScript:")
+            for product_id, product_name in js_matches:
+                products.append({'id': product_id, 'name': product_name})
+                print(f"    Product {product_id}: {product_name}")
+        
+        # Look for HTML product elements
+        html_patterns = [
+            r'<div[^>]*class="[^"]*product[^"]*"[^>]*>(.*?)</div>',
+            r'<div[^>]*data-product-id="(\d+)"[^>]*>(.*?)</div>',
+            r'<h[1-6][^>]*>([^<]*(?:laptop|phone|headphone|watch|product)[^<]*)</h[1-6]>',
+        ]
+        
+        for pattern in html_patterns:
+            matches = re.findall(pattern, content, re.IGNORECASE | re.DOTALL)
+            if matches:
+                print(f"[+] Found HTML product elements: {len(matches)}")
+                for match in matches[:5]:  # Show first 5 matches
+                    if isinstance(match, tuple):
+                        print(f"    HTML: {match[0][:100]}...")
+                    else:
+                        print(f"    HTML: {match[:100]}...")
+        
+        # Look for purchase mechanisms
+        purchase_patterns = [
+            r'<button[^>]*(?:buy|purchase|order|cart)[^>]*>(.*?)</button>',
+            r'<a[^>]*(?:buy|purchase|order|cart)[^>]*>(.*?)</a>',
+            r'<input[^>]*type="submit"[^>]*value="[^"]*(?:buy|purchase|order|cart)[^"]*"',
+            r'onclick="[^"]*(?:buy|purchase|order|cart)[^"]*"',
+            r'function\s+(?:buy|purchase|order|cart)\s*\(',
+        ]
+        
+        purchase_elements = []
+        for pattern in purchase_patterns:
+            matches = re.findall(pattern, content, re.IGNORECASE | re.DOTALL)
+            if matches:
+                purchase_elements.extend(matches)
+        
+        if purchase_elements:
+            print(f"[+] Found {len(purchase_elements)} purchase-related elements:")
+            for element in purchase_elements[:10]:  # Show first 10
+                print(f"    Purchase element: {str(element)[:100]}...")
+        else:
+            print("[-] No obvious purchase elements found")
+        
+        # Look for JavaScript functions and AJAX calls
+        js_function_patterns = [
+            r'function\s+(\w*(?:buy|purchase|order|cart)\w*)\s*\([^)]*\)',
+            r'(\w*(?:buy|purchase|order|cart)\w*)\s*:\s*function',
+            r'\.post\s*\(\s*["\']([^"\']*(?:buy|purchase|order|cart)[^"\']*)["\']',
+            r'\.get\s*\(\s*["\']([^"\']*(?:buy|purchase|order|cart)[^"\']*)["\']',
+        ]
+        
+        js_functions = []
+        for pattern in js_function_patterns:
+            matches = re.findall(pattern, content, re.IGNORECASE)
+            if matches:
+                js_functions.extend(matches)
+        
+        if js_functions:
+            print(f"[+] Found {len(js_functions)} JavaScript purchase functions/endpoints:")
+            for func in js_functions:
+                print(f"    JS function/endpoint: {func}")
+        
+        # Look for hidden elements or data attributes
+        hidden_patterns = [
+            r'data-product-id="([^"]+)"',
+            r'data-price="([^"]+)"',
+            r'<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]+)"',
+        ]
+        
+        hidden_data = []
+        for pattern in hidden_patterns:
+            matches = re.findall(pattern, content, re.IGNORECASE)
+            if matches:
+                hidden_data.extend(matches)
+        
+        if hidden_data:
+            print(f"[+] Found {len(hidden_data)} hidden data elements:")
+            for data in hidden_data[:10]:  # Show first 10
+                print(f"    Hidden data: {data}")
+        
+        return {
+            'products': products,
+            'purchase_elements': purchase_elements,
+            'js_functions': js_functions,
+            'hidden_data': hidden_data
+        }
     
     def make_purchase(self, shop_response):
         """Attempt to make a purchase"""
@@ -365,4 +463,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
