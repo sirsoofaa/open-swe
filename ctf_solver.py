@@ -9,7 +9,6 @@ import urllib.parse
 import urllib.error
 import http.cookiejar
 import re
-import sys
 from html.parser import HTMLParser
 
 
@@ -611,6 +610,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
