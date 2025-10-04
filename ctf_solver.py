@@ -337,8 +337,10 @@ class CTFSolver:
         js_function_patterns = [
             r'function\s+(\w*(?:buy|purchase|order|cart)\w*)\s*\([^)]*\)',
             r'(\w*(?:buy|purchase|order|cart)\w*)\s*:\s*function',
-            r'\.post\s*\(\s*["\']([^"\']*(?:buy|purchase|order|cart)[^"\']*)["\']',
-            r'\.get\s*\(\s*["\']([^"\']*(?:buy|purchase|order|cart)[^"\']*)["\']',
+            r'\.post\s*\(\s*["\']([^"\']*(?:buy|purchase|order|cart)'
+            r'[^"\']*)["\']',
+            r'\.get\s*\(\s*["\']([^"\']*(?:buy|purchase|order|cart)'
+            r'[^"\']*)["\']',
         ]
         
         js_functions = []
@@ -612,6 +614,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
