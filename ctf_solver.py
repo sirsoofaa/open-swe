@@ -314,7 +314,8 @@ class CTFSolver:
         purchase_patterns = [
             r'<button[^>]*(?:buy|purchase|order|cart)[^>]*>(.*?)</button>',
             r'<a[^>]*(?:buy|purchase|order|cart)[^>]*>(.*?)</a>',
-            r'<input[^>]*type="submit"[^>]*value="[^"]*(?:buy|purchase|order|cart)[^"]*"',
+            r'<input[^>]*type="submit"[^>]*value="[^"]*'
+            r'(?:buy|purchase|order|cart)[^"]*"',
             r'onclick="[^"]*(?:buy|purchase|order|cart)[^"]*"',
             r'function\s+(?:buy|purchase|order|cart)\s*\(',
         ]
@@ -611,6 +612,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
