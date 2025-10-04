@@ -199,6 +199,13 @@ class CTFSolver:
         if response['status'] == 200:
             print("[+] Successfully accessed shop")
             
+            # Print shop content for analysis
+            print(f"[+] Shop content length: {len(response['content'])}")
+            print(f"[+] Shop content preview:")
+            print("-" * 50)
+            print(response['content'][:1000])
+            print("-" * 50)
+            
             # Look for flag in shop page
             flag = self.find_flag(response['content'])
             if flag:
@@ -358,3 +365,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
