@@ -116,20 +116,72 @@ class CTFSolver:
         return parser.forms
     
     def find_flag(self, text):
-        """Search for flag patterns in text"""
+        """Search for flag patterns in text with comprehensive detection"""
+        if not text:
+            return None
+            
+        # Standard flag patterns
         flag_patterns = [
             r'flag\{[^}]+\}',
             r'FLAG\{[^}]+\}',
             r'ctf\{[^}]+\}',
             r'CTF\{[^}]+\}',
+            r'[a-zA-Z0-9_]+\{[^}]+\}',  # Generic flag pattern
             r'\{[a-f0-9]{32,}\}',
-            r'[a-f0-9]{32,64}'
+            r'[a-f0-9]{32,64}',
+            r'flag_[a-zA-Z0-9_]+',      # Flag with underscore
+            r'FLAG_[a-zA-Z0-9_]+',      # FLAG with underscore
         ]
         
         for pattern in flag_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             if matches:
-                return matches
+                return matches[0] if isinstance(matches, list) else matches
+        
+        # Look for hidden text in HTML comments
+        comment_pattern = r'<!--\s*([^-]+)\s*-->'
+        comments = re.findall(comment_pattern, text, re.DOTALL)
+        for comment in comments:
+            for pattern in flag_patterns:
+                matches = re.findall(pattern, comment, re.IGNORECASE)
+                if matches:
+                    return matches[0] if isinstance(matches, list) else matches
+        
+        # Look for flag in JavaScript variables
+        js_patterns = [
+            r'var\s+flag\s*=\s*["\']([^"\']+)["\']',
+            r'const\s+flag\s*=\s*["\']([^"\']+)["\']',
+            r'let\s+flag\s*=\s*["\']([^"\']+)["\']',
+            r'flag\s*:\s*["\']([^"\']+)["\']',
+        ]
+        
+        for pattern in js_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                return matches[0]
+        
+        # Look for flag in data attributes
+        data_pattern = r'data-flag\s*=\s*["\']([^"\']+)["\']'
+        matches = re.findall(data_pattern, text, re.IGNORECASE)
+        if matches:
+            return matches[0]
+        
+        # Look for suspicious strings that might be flags
+        suspicious_patterns = [
+            r'[A-Za-z0-9+/]{20,}={0,2}',  # Base64 encoded
+            r'[0-9a-f]{32}',              # MD5 hash
+            r'[0-9a-f]{40}',              # SHA1 hash
+            r'[0-9a-f]{64}',              # SHA256 hash
+        ]
+        
+        for pattern in suspicious_patterns:
+            matches = re.findall(pattern, text)
+            if matches:
+                # Filter out common false positives
+                for match in matches:
+                    if len(match) >= 20 and not match.startswith('http') and 'bootstrap' not in match.lower():
+                        return match
+        
         return None
     
     def register(self, username='testuser', password='testpass'):
@@ -559,6 +611,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
